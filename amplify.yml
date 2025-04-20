@@ -1,9 +1,23 @@
 version: 1
 backend:
   phases:
+    preBuild:
+      commands:
+        - npm ci
     build:
       commands:
-        - echo "No backend commands needed"
+        - npm run build
+  artifacts:
+    baseDirectory: build/server
+    files:
+      - '**/*'
+  cache:
+    paths:
+      - node_modules/**/*
+  customHeaders:
+    - pattern: '**/*'
+      headers:
+        - key: 'Cache-Control'
 frontend:
   phases:
     preBuild:
@@ -19,3 +33,8 @@ frontend:
   cache:
     paths:
       - node_modules/**/*
+  customHeaders:
+    - pattern: '**/*'
+      headers:
+        - key: 'Cache-Control'
+          value: 'public, max-age=0, must-revalidate'
