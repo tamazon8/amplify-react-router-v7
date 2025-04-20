@@ -3,7 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
 import { PassThrough } from 'node:stream';
-import * as handler from './index.js';
+import * as indexHandler from './index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -36,7 +36,7 @@ app.get('*', async (req, res) => {
     
     try {
       // SSRハンドラー関数を呼び出し
-      const result = await handler.default(
+      const result = await indexHandler.default(
         request,
         200,
         new Headers(),
@@ -89,7 +89,7 @@ app.use((err, req, res, next) => {
 });
 
 // AWS Lambda ハンドラ
-export const handler = async (event, context) => {
+export const lambdaHandler = async (event, context) => {
   console.log('Lambda event:', JSON.stringify(event));
   
   // Lambda Proxy リクエストをExpressリクエストに変換するための簡易サーバー
@@ -144,11 +144,11 @@ export const handler = async (event, context) => {
           });
         }
       };
-
+      
       // リクエスト処理
       app(req, res);
-    });s
-
+    });
+    
     // タイムアウト設定
     setTimeout(() => {
       server.close();
@@ -156,6 +156,9 @@ export const handler = async (event, context) => {
     }, 29000); // Lambda最大実行時間より少し短く
   });
 };
+
+// エクスポートをハンドラとして定義
+export const handler = lambdaHandler;
 
 // ローカル開発用サーバー起動 (Lambda環境では呼ばれない)
 if (process.env.NODE_ENV !== 'production') {
@@ -165,4 +168,4 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
-export default app; 
+export default app;
