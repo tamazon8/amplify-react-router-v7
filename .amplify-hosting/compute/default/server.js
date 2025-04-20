@@ -8,14 +8,20 @@ import * as indexModule from './index.js';
 // index.jsの内容をログに出力して調査
 console.log('Index module exports:', Object.keys(indexModule));
 
-// index.jsのエクスポートを検査
-const handleRequest = indexModule.default || 
-                      indexModule.handleRequest || 
-                      (indexModule.entryServer && indexModule.entryServer.default);
+// SSRハンドラを取得
+// index.jsのhandleRequest関数は直接エクスポートされているか
+// またはentryServer.defaultとしてエクスポートされている
+let handleRequest = null;
 
-if (!handleRequest) {
+if (indexModule.entryServer && indexModule.entryServer.default) {
+  console.log('Using indexModule.entryServer.default as the SSR handler');
+  handleRequest = indexModule.entryServer.default;
+} else if (typeof indexModule.handleRequest === 'function') {
+  console.log('Using indexModule.handleRequest as the SSR handler');
+  handleRequest = indexModule.handleRequest;
+} else {
   console.error('Could not find a valid handler function in index.js. Available exports:', 
-               JSON.stringify(Object.keys(indexModule)));
+              JSON.stringify(Object.keys(indexModule)));
 }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -24,7 +30,7 @@ const app = express();
 // 静的ファイルのサービング
 app.use(express.static(path.join(__dirname, '../static')));
 
-// シンプルなスタティックファイルサーバーとして動作
+// リクエスト処理
 app.get('*', async (req, res) => {
   try {
     console.log(`Handling request: ${req.url}`);
@@ -33,7 +39,7 @@ app.get('*', async (req, res) => {
     if (!handleRequest) {
       console.log('No handler function found, serving static HTML instead');
       // 静的なHTMLを返す
-      res.status(200).send(`
+      return res.status(200).send(`
         <!DOCTYPE html>
         <html>
           <head>
@@ -50,7 +56,6 @@ app.get('*', async (req, res) => {
           </body>
         </html>
       `);
-      return;
     }
     
     // Express リクエストをRequest オブジェクトに変換
@@ -65,21 +70,30 @@ app.get('*', async (req, res) => {
       headers,
     });
 
-    // SSR処理
+    // React Routerのコンテキスト
     const routerContext = {
       url: req.url,
-      isSpaMode: false
+      isSpaMode: indexModule.isSpaMode || false
     };
     
     try {
-      // SSRハンドラー関数を呼び出し
+      console.log('Calling SSR handler with request URL:', request.url);
+      
+      // SSRハンドラー関数の呼び出し
       const result = await handleRequest(
-        request,
-        200,
-        new Headers(),
+        request, 
+        200, 
+        new Headers(), 
         routerContext,
         {}
       );
+      
+      if (!result) {
+        console.error('SSR handler returned no result');
+        return res.status(500).send('Internal Server Error: SSR handler returned no result');
+      }
+      
+      console.log('SSR handler returned result with status:', result.status);
       
       // ステータスコードとヘッダーの設定
       res.status(result.status || 200);
@@ -92,30 +106,44 @@ app.get('*', async (req, res) => {
       
       // レスポンスボディの処理
       if (result.body) {
-        const chunks = [];
-        const reader = result.body.getReader();
-        
-        let done = false;
-        while (!done) {
-          const { value, done: doneReading } = await reader.read();
-          done = doneReading;
-          if (value) {
-            chunks.push(value);
+        if (result.body.getReader) {
+          // ReadableStreamを処理
+          const chunks = [];
+          const reader = result.body.getReader();
+          
+          try {
+            let done = false;
+            while (!done) {
+              const { value, done: doneReading } = await reader.read();
+              done = doneReading;
+              if (value) {
+                chunks.push(value);
+              }
+            }
+            
+            const buffer = Buffer.concat(chunks);
+            return res.end(buffer);
+          } catch (streamError) {
+            console.error('Error reading stream:', streamError);
+            return res.status(500).send(`Error processing response stream: ${streamError.message}`);
           }
+        } else if (typeof result.body === 'string') {
+          // 文字列の場合
+          return res.send(result.body);
+        } else {
+          // その他の形式
+          return res.send(String(result.body));
         }
-        
-        const buffer = Buffer.concat(chunks);
-        res.end(buffer);
       } else {
-        res.end();
+        return res.end();
       }
     } catch (error) {
       console.error('Error in SSR handler:', error);
-      res.status(500).send(`Internal Server Error: ${error.message}`);
+      return res.status(500).send(`Internal Server Error: ${error.message}`);
     }
   } catch (err) {
     console.error('Server error:', err);
-    res.status(500).send(`Internal Server Error: ${err.message}`);
+    return res.status(500).send(`Internal Server Error: ${err.message}`);
   }
 });
 
