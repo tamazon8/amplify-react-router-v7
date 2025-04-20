@@ -14,6 +14,12 @@ cp -r build/server/* .amplify-hosting/compute/default/
 echo "Copying package.json to server..."
 cp package.json .amplify-hosting/compute/default/
 
+# Expressを依存関係に追加
+echo "Adding Express dependency..."
+cd .amplify-hosting/compute/default
+npm install express --save
+cd -
+
 # 依存関係のコピー
 echo "Copying node_modules to server..."
 cp -r node_modules .amplify-hosting/compute/default/
@@ -55,7 +61,7 @@ cat > .amplify-hosting/deploy-manifest.json << 'EOL'
   "computeResources": [
     {
       "name": "default",
-      "entrypoint": "index.js",
+      "entrypoint": "server.js",
       "runtime": "nodejs20.x"
     }
   ],

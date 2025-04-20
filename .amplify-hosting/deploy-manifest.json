@@ -22,7 +22,7 @@
   "computeResources": [
     {
       "name": "default",
-      "entrypoint": "index.js",
+      "entrypoint": "server.js",
       "runtime": "nodejs20.x"
     }
   ],
