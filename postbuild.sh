@@ -14,8 +14,42 @@ cp -r build/server/* .amplify-hosting/compute/default/
 echo "Copying client files..."
 cp -r build/client/* .amplify-hosting/static/
 
-# deploy-manifest.jsonのコピー
-echo "Copying deploy-manifest.json..."
-cp deploy-manifest.json .amplify-hosting/
+# deploy-manifest.jsonの作成
+echo "Creating deploy-manifest.json..."
+cat > .amplify-hosting/deploy-manifest.json << 'EOL'
+{
+  "version": 1,
+  "routes": [
+    {
+      "path": "/*.*",
+      "target": {
+        "kind": "Static"
+      },
+      "fallback": {
+        "kind": "Compute",
+        "src": "default"
+      }
+    },
+    {
+      "path": "/*",
+      "target": {
+        "kind": "Compute",
+        "src": "default"
+      }
+    }
+  ],
+  "computeResources": [
+    {
+      "name": "default",
+      "entrypoint": "index.js",
+      "runtime": "nodejs20.x"
+    }
+  ],
+  "framework": {
+    "name": "react-router",
+    "version": "7.5.1"
+  }
+}
+EOL
 
-echo "Post-build process completed successfully!" 
+echo "Post-build process completed successfully!"
