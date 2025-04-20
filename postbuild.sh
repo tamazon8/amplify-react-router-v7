@@ -10,18 +10,19 @@ mkdir -p .amplify-hosting/static
 echo "Copying server files..."
 cp -r build/server/* .amplify-hosting/compute/default/
 
-# package.jsonをサーバーディレクトリに作成
-echo "Creating package.json for server..."
-cat > .amplify-hosting/compute/default/package.json << 'EOL'
-{
-  "name": "amplify-react-router-v7-server",
-  "private": true,
-  "type": "module",
-  "engines": {
-    "node": ">=20.0.0"
-  }
-}
-EOL
+# package.jsonをサーバーディレクトリにコピー
+echo "Copying package.json to server..."
+cp package.json .amplify-hosting/compute/default/
+
+# 依存関係のコピー
+echo "Copying node_modules to server..."
+cp -r node_modules .amplify-hosting/compute/default/
+
+# package-lock.jsonもコピー
+if [ -f "package-lock.json" ]; then
+  echo "Copying package-lock.json to server..."
+  cp package-lock.json .amplify-hosting/compute/default/
+fi
 
 # クライアントファイルのコピー
 echo "Copying client files..."
