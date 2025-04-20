@@ -3,7 +3,20 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
 import { PassThrough } from 'node:stream';
-import * as indexHandler from './index.js';
+import * as indexModule from './index.js';
+
+// index.jsの内容をログに出力して調査
+console.log('Index module exports:', Object.keys(indexModule));
+
+// index.jsのエクスポートを検査
+const handleRequest = indexModule.default || 
+                      indexModule.handleRequest || 
+                      (indexModule.entryServer && indexModule.entryServer.default);
+
+if (!handleRequest) {
+  console.error('Could not find a valid handler function in index.js. Available exports:', 
+               JSON.stringify(Object.keys(indexModule)));
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -11,10 +24,34 @@ const app = express();
 // 静的ファイルのサービング
 app.use(express.static(path.join(__dirname, '../static')));
 
-// すべてのリクエストをSSRハンドラにルーティング
+// シンプルなスタティックファイルサーバーとして動作
 app.get('*', async (req, res) => {
   try {
     console.log(`Handling request: ${req.url}`);
+    
+    // エクスポートされたハンドラ関数が見つからない場合、静的ファイルだけを提供
+    if (!handleRequest) {
+      console.log('No handler function found, serving static HTML instead');
+      // 静的なHTMLを返す
+      res.status(200).send(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>React Router App</title>
+          </head>
+          <body>
+            <div id="root">
+              <h1>React Router App</h1>
+              <p>This page is being served statically because the SSR handler could not be initialized properly.</p>
+            </div>
+            <script src="/assets/entry.client.js" type="module"></script>
+          </body>
+        </html>
+      `);
+      return;
+    }
     
     // Express リクエストをRequest オブジェクトに変換
     const url = new URL(req.url, `http://${req.headers.host}`);
@@ -36,7 +73,7 @@ app.get('*', async (req, res) => {
     
     try {
       // SSRハンドラー関数を呼び出し
-      const result = await indexHandler.default(
+      const result = await handleRequest(
         request,
         200,
         new Headers(),
@@ -74,18 +111,18 @@ app.get('*', async (req, res) => {
       }
     } catch (error) {
       console.error('Error in SSR handler:', error);
-      res.status(500).send('Internal Server Error');
+      res.status(500).send(`Internal Server Error: ${error.message}`);
     }
   } catch (err) {
     console.error('Server error:', err);
-    res.status(500).send('Internal Server Error');
+    res.status(500).send(`Internal Server Error: ${err.message}`);
   }
 });
 
 // エラー処理
 app.use((err, req, res, next) => {
   console.error('Express error:', err);
-  res.status(500).send('Internal Server Error');
+  res.status(500).send(`Internal Server Error: ${err.message}`);
 });
 
 // AWS Lambda ハンドラ
@@ -142,6 +179,10 @@ export const lambdaHandler = async (event, context) => {
               isBase64Encoded: false
             });
           });
+        },
+        send: function(body) {
+          this.body = body;
+          this.end();
         }
       };
       
