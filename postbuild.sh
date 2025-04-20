@@ -10,6 +10,10 @@ mkdir -p .amplify-hosting/static
 echo "Copying server files..."
 cp -r build/server/* .amplify-hosting/compute/default/
 
+# server.jsをコピー
+echo "Copying server.js to compute directory..."
+cp server.js .amplify-hosting/compute/default/
+
 # package.jsonをサーバーディレクトリにコピー
 echo "Copying package.json to server..."
 cp package.json .amplify-hosting/compute/default/
@@ -17,7 +21,7 @@ cp package.json .amplify-hosting/compute/default/
 # Expressを依存関係に追加
 echo "Adding Express dependency..."
 cd .amplify-hosting/compute/default
-npm install express --save
+npm install express @react-router/express --save
 cd -
 
 # 依存関係のコピー
