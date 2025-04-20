@@ -10,6 +10,19 @@ mkdir -p .amplify-hosting/static
 echo "Copying server files..."
 cp -r build/server/* .amplify-hosting/compute/default/
 
+# package.jsonをサーバーディレクトリに作成
+echo "Creating package.json for server..."
+cat > .amplify-hosting/compute/default/package.json << 'EOL'
+{
+  "name": "amplify-react-router-v7-server",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
+EOL
+
 # クライアントファイルのコピー
 echo "Copying client files..."
 cp -r build/client/* .amplify-hosting/static/
@@ -53,3 +66,8 @@ cat > .amplify-hosting/deploy-manifest.json << 'EOL'
 EOL
 
 echo "Post-build process completed successfully!"
+
+# 検証スクリプトを実行
+echo "Running verification..."
+chmod +x ./verify-deploy.sh
+./verify-deploy.sh
