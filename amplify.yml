@@ -7,8 +7,12 @@ backend:
     build:
       commands:
         - npm run build
+    postBuild:
+      commands:
+        - chmod +x ./postbuild.sh
+        - ./postbuild.sh
   artifacts:
-    baseDirectory: build/server
+    baseDirectory: .amplify-hosting
     files:
       - '**/*'
   cache:
@@ -26,8 +30,12 @@ frontend:
     build:
       commands:
         - npm run build
+    postBuild:
+      commands:
+        - chmod +x ./postbuild.sh
+        - ./postbuild.sh
   artifacts:
-    baseDirectory: build/client
+    baseDirectory: .amplify-hosting
     files:
       - '**/*'
   cache:
